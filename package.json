@@ -1,6 +1,6 @@
 {
   "name": "@egomobile/forms",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Types and helpers, handling forms and their data.",
   "main": "lib/index.js",
   "engines": {
@@ -60,7 +60,8 @@
     "typescript": "4.6.4"
   },
   "dependencies": {
+    "@types/json-schema": "7.0.11",
     "ajv": "8.11.0",
-    "@types/json-schema": "7.0.11"
+    "ajv-formats": "2.1.1"
   }
 }

@@ -13,9 +13,9 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import Ajv from "ajv";
 import type { FormValidator, IForm, IFormValidatorResultItem } from "./types";
 import { isNil } from "./utils/internal";
+import { createAjv } from "./utils";
 
 /**
  * Creates a validator from a form.
@@ -29,9 +29,7 @@ export function compileFormValidator(form: IForm): FormValidator {
 
     if (schema?.config) {
         return (values) => {
-            const ajv = new Ajv({
-                "allErrors": true
-            });
+            const ajv = createAjv();
 
             const validate = ajv.compile(schema?.config);
             const isValid = validate(values);
@@ -71,3 +69,4 @@ export function compileFormValidator(form: IForm): FormValidator {
 
 export * from "./schemas";
 export * from "./types";
+export * from "./utils";

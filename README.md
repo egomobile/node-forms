@@ -74,6 +74,8 @@ main().catch(console.error);
 The module makes use of:
 
 - [Ajv](https://github.com/ajv-validator/ajv)
+- [ajv-formats](https://github.com/ajv-validator/ajv-formats)
+- [json-schema](https://www.npmjs.com/package/json-schema)
 
 ## Documentation
 
