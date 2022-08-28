@@ -1,6 +1,6 @@
 {
   "name": "@egomobile/forms",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Types and helpers, handling forms and their data.",
   "main": "lib/index.js",
   "engines": {

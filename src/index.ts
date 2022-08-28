@@ -13,16 +13,22 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import { XMLParser } from "fast-xml-parser";
+import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import type { FormComponentChild, FormValidator, IForm, IFormComponent, IFormValidatorResultItem } from "./types";
 import { isNil } from "./utils/internal";
 import { createAjv } from "./utils";
 
+const baseXmlOptions = {
+    "ignoreAttributes": false,
+    "preserveOrder": true,
+    "attributeNamePrefix": ""
+};
 const defaultFormVersion = "1";
 const schemaXmlTagName = "schema";
 const specialXmlAttribPrefix = "@";
 const xmlAttribKey = ":@";
 const xmlNameAttrib = specialXmlAttribPrefix + "name";
+const xmlFormRootTagName = "e-form";
 const xmlTextKey = "#text";
 
 /**
@@ -156,14 +162,12 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
     };
 
     const parser = new XMLParser({
-        "ignoreAttributes": false,
-        "allowBooleanAttributes": true,
-        "preserveOrder": true,
-        "attributeNamePrefix": ""
+        ...baseXmlOptions,
+        "allowBooleanAttributes": true
     });
     const jObj = parser.parse(xml);
 
-    const rootTag = jObj[0]?.["e-form"];
+    const rootTag = jObj[0]?.[xmlFormRootTagName];
     if (Array.isArray(rootTag)) {
         const rootAttribs = jObj[0]?.[xmlAttribKey];
         const version = rootAttribs?.["version"];
@@ -201,6 +205,86 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
     }
 
     return form;
+}
+
+/**
+ * Converts an `IForm` to a XML string.
+ *
+ * @param {IForm} form The input form.
+ *
+ * @returns {string} The XML string.
+ */
+export function toXml(form: IForm): string {
+    const rootTag: any[] = [];
+    const rootAttribs: any = {
+        "version": form.version
+    };
+
+    const collectChildComponents = (component: FormComponentChild, tag: any[]) => {
+        if (!component) {
+            return;
+        }
+
+        if (typeof component === "string") {
+            tag.push({
+                [xmlTextKey]: component
+            });
+        }
+        else {
+            const attribs: any = {
+                ...(component.props || {})
+            };
+
+            if (component?.name?.length) {
+                attribs["@name"] = component.name;
+            }
+
+            const componentChildren: any[] = [];
+
+            const childTag: any[] = [{
+                [component.class]: componentChildren,
+                [xmlAttribKey]: attribs
+            }];
+
+            if (component.children?.length) {
+                for (const child of component.children) {
+                    collectChildComponents(child, componentChildren);
+                }
+            }
+
+            tag.push(...childTag);
+        }
+    };
+
+    for (const component of form.components) {
+        collectChildComponents(component, rootTag);
+    }
+
+    if (form.schema) {
+        rootTag.push({
+            [schemaXmlTagName]: [{
+                [xmlTextKey]: JSON.stringify(form.schema.config || {}, null, 2)
+            }],
+
+            [xmlAttribKey]: {
+                "format": form.schema.format
+            }
+        });
+    }
+
+    const jObj: any[] = [{
+        [xmlFormRootTagName]: rootTag,
+        [xmlAttribKey]: rootAttribs
+    }];
+
+    const builder = new XMLBuilder({
+        ...baseXmlOptions,
+        "suppressEmptyNode": false,
+        "suppressBooleanAttributes": false,
+        "format": true
+    });
+
+    return builder.build(jObj);
 }
 
 export * from "./schemas";
