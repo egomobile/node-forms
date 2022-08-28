@@ -1,5 +1,10 @@
 # Change Log (@egomobile/forms)
 
+## 0.5.0
+
+- can handle different data types in XML attributes now
+- add compatibility to [JSON5](https://www.npmjs.com/package/json5)
+
 ## 0.4.0
 
 - add `toXml()` function

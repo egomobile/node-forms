@@ -76,6 +76,7 @@ The module makes use of:
 - [Ajv](https://github.com/ajv-validator/ajv)
 - [ajv-formats](https://github.com/ajv-validator/ajv-formats)
 - [fast-xml-parser](https://github.com/NaturalIntelligence/fast-xml-parser)
+- [json5](https://github.com/json5/json5)
 - [json-schema](https://www.npmjs.com/package/json-schema)
 
 ## Documentation

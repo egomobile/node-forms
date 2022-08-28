@@ -13,9 +13,10 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import JSON5 from "json5";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
 import type { FormComponentChild, FormValidator, IForm, IFormComponent, IFormValidatorResultItem } from "./types";
-import { isNil } from "./utils/internal";
+import { getXmlAttribValue, isNil, toXmlAttrib } from "./utils/internal";
 import { createAjv } from "./utils";
 
 const baseXmlOptions = {
@@ -148,7 +149,9 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
                                     continue;  // no special attributes
                                 }
 
-                                newComponent.props![attribName] = attribValue;
+                                const prop = getXmlAttribValue(attribName, attribValue);
+
+                                newComponent.props![prop.name] = prop.value;
                             }
                         }
 
@@ -195,7 +198,7 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
                 if (typeof textChild[xmlTextKey] === "string") {
                     const schemaJson = textChild[xmlTextKey].trim();
                     if (schemaJson.length) {
-                        form.schema = JSON.parse(schemaJson);
+                        form.schema = JSON5.parse<any>(schemaJson);
                     }
                 }
             }
@@ -231,9 +234,13 @@ export function toXml(form: IForm): string {
             });
         }
         else {
-            const attribs: any = {
-                ...(component.props || {})
-            };
+            const attribs: any = {};
+            for (const [name, value] of Object.entries(component.props || {})) {
+                const newAttrib = toXmlAttrib(name, value);
+                if (newAttrib) {
+                    attribs[newAttrib.name] = newAttrib.value;
+                }
+            }
 
             if (component?.name?.length) {
                 attribs["@name"] = component.name;
