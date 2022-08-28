@@ -13,9 +13,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import type { FormValidator, IForm, IFormValidatorResultItem } from "./types";
+import { XMLParser } from "fast-xml-parser";
+import type { FormComponentChild, FormValidator, IForm, IFormComponent, IFormValidatorResultItem } from "./types";
 import { isNil } from "./utils/internal";
 import { createAjv } from "./utils";
+
+const defaultFormVersion = "1";
+const schemaXmlTagName = "schema";
+const specialXmlAttribPrefix = "@";
+const xmlAttribKey = ":@";
+const xmlNameAttrib = specialXmlAttribPrefix + "name";
+const xmlTextKey = "#text";
 
 /**
  * Creates a validator from a form.
@@ -65,6 +73,134 @@ export function compileFormValidator(form: IForm): FormValidator {
             return result;
         };
     }
+}
+
+/**
+ * Creates a new `IForm` from XML data.
+ *
+ * @param {string|object} xmlData The XML data.
+ *
+ * @returns {IForm} The new form.
+ */
+export function fromXml(xmlData: string | { toString(): string; }): IForm {
+    const xml = String(
+        typeof xmlData === "string" ?
+            xmlData :
+            xmlData.toString()
+    );
+
+    const form = {
+        "components": [],
+        "schema": null,
+        "version": defaultFormVersion
+    };
+
+    const collectChildComponents = (parent: any[], targetList: FormComponentChild[]) => {
+        if (!Array.isArray(parent)) {
+            return;
+        }
+
+        for (const child of parent) {
+            if (typeof child !== "object") {
+                continue;
+            }
+
+            const entries = Object.entries(child);
+            const attribEntry = entries.find(([key, value]) => {
+                return key === xmlAttribKey;
+            });
+
+            for (const entry of entries) {
+                const tagName = entry[0];
+                const tagChildren: any = entry[1];
+
+                if (tagName === xmlTextKey) {
+                    targetList.push(String(tagChildren));
+                }
+                else {
+                    const isAttributeList = tagName === xmlAttribKey;
+                    const isComponent = !isAttributeList &&
+                        String(tagName[0]) === tagName[0]?.toUpperCase();
+
+                    if (isComponent) {
+                        const newComponent: IFormComponent = {
+                            "class": tagName,
+                            "children": [],
+                            "name": null,
+                            "props": {}
+                        };
+
+                        if (Array.isArray(attribEntry)) {
+                            const attribs: any = attribEntry[1];
+
+                            if (typeof attribs[xmlNameAttrib] === "string") {
+                                newComponent.name = attribs[xmlNameAttrib].trim() || null;
+                            }
+
+                            for (const [attribName, attribValue] of Object.entries(attribs)) {
+                                if (attribName.trim().startsWith(specialXmlAttribPrefix)) {
+                                    continue;  // no special attributes
+                                }
+
+                                newComponent.props![attribName] = attribValue;
+                            }
+                        }
+
+                        targetList.push(newComponent);
+
+                        collectChildComponents(tagChildren, newComponent.children as FormComponentChild[]);
+                    }
+                }
+            }
+        }
+    };
+
+    const parser = new XMLParser({
+        "ignoreAttributes": false,
+        "allowBooleanAttributes": true,
+        "preserveOrder": true,
+        "attributeNamePrefix": ""
+    });
+    const jObj = parser.parse(xml);
+
+    const rootTag = jObj[0]?.["e-form"];
+    if (Array.isArray(rootTag)) {
+        const rootAttribs = jObj[0]?.[xmlAttribKey];
+        const version = rootAttribs?.["version"];
+
+        // <e-form version="..." />
+        if (typeof version === "string") {
+            form.version = version.trim() || defaultFormVersion;
+        }
+
+        // <schema />
+        const schemaAttribEntry = rootTag.find((tag) => {
+            return Object.entries(tag).some(([key, value]) => {
+                return key === schemaXmlTagName;
+            });
+        });
+        if (schemaAttribEntry) {
+            const schemaTag = schemaAttribEntry[schemaXmlTagName];
+            const textChild = schemaTag.find((tag: any) => {
+                return Object.entries(tag).some(([key, value]) => {
+                    return key === xmlTextKey;
+                });
+            });
+
+            if (textChild) {
+                if (typeof textChild[xmlTextKey] === "string") {
+                    const schemaJson = textChild[xmlTextKey].trim();
+                    if (schemaJson.length) {
+                        form.schema = JSON.parse(schemaJson);
+                    }
+                }
+            }
+        }
+
+        collectChildComponents(rootTag, form.components);
+    }
+
+    return form;
 }
 
 export * from "./schemas";
