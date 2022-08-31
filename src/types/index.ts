@@ -73,7 +73,7 @@ export interface IForm {
      */
     components: IFormComponent[];
     /**
-     * The optional schema.
+     * The global and optional form-wide schema.
      */
     schema?: Nilable<FormSchema>;
     /**
@@ -102,6 +102,10 @@ export interface IFormComponent {
      * One or more optional props to setup the component.
      */
     props?: Nilable<FormComponentProps>;
+    /**
+     * The optional schema.
+     */
+    schema?: Nilable<FormSchema>;
 }
 
 /**

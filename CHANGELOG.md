@@ -1,5 +1,9 @@
 # Change Log (@egomobile/forms)
 
+## 0.7.0
+
+- [IFormComponent items](https://egomobile.github.io/node-forms/interfaces/IFormComponent.html) can also handle own `schema` props now
+
 ## 0.6.0
 
 - add `valuePath` property to [IFormValidatorResultItem interface](https://egomobile.github.io/node-forms/interfaces/IFormValidatorResultItem.html)

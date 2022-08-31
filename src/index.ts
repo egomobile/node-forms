@@ -15,9 +15,14 @@
 
 import JSON5 from "json5";
 import { XMLBuilder, XMLParser } from "fast-xml-parser";
-import type { FormComponentChild, FormValidator, IForm, IFormComponent, IFormValidatorResultItem } from "./types";
-import { getXmlAttribValue, isNil, toXmlAttrib } from "./utils/internal";
+import type { FormComponentChild, FormSchema, FormValidator, IForm, IFormComponent, IFormValidatorResultItem } from "./types";
+import { getAllSchemasForValidation, getXmlAttribValue, isNil, toXmlAttrib } from "./utils/internal";
+import type { Nilable } from "./types/internal";
 import { createAjv } from "./utils";
+
+interface IWithSchema {
+    schema?: Nilable<FormSchema>;
+}
 
 const baseXmlOptions = {
     "ignoreAttributes": false,
@@ -40,25 +45,47 @@ const xmlTextKey = "#text";
  * @returns {FormValidator} The validator.
  */
 export function compileFormValidator(form: IForm): FormValidator {
-    const { schema } = form;
+    const formSchema = form.schema;
 
-    if (schema?.config) {
+    const allSchemas = getAllSchemasForValidation(form.components);
+    if (formSchema) {
+        // empty key means => form-wide
+        allSchemas[""] = formSchema;
+    }
+
+    const schemaEntries = Object.entries(allSchemas);
+    if (schemaEntries.length) {
         return (values) => {
-            const ajv = createAjv();
-
-            const validate = ajv.compile(schema?.config);
-            const isValid = validate(values);
-
             const result: IFormValidatorResultItem[] = [];
-            if (!isValid) {
-                validate.errors?.forEach((error) => {
-                    result.push({
-                        "type": "error",
-                        "message": error.message || null,
-                        "valuePath": error.instancePath
+
+            schemaEntries.forEach(([componentName, componentSchema]) => {
+                const ajv = createAjv();
+
+                const validate = ajv.compile(componentSchema.config);
+
+                let isValid: boolean;
+                if (componentName !== "") {
+                    // single value
+
+                    isValid = validate({
+                        [componentName]: values[componentName]
                     });
-                });
-            }
+                }
+                else {
+                    // form wide => all values
+                    isValid = validate(values);
+                }
+
+                if (!isValid) {
+                    validate.errors?.forEach((error) => {
+                        result.push({
+                            "type": "error",
+                            "message": error.message || null,
+                            "valuePath": `/${componentName}`
+                        });
+                    });
+                }
+            });
 
             return result;
         };
@@ -98,10 +125,42 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
             xmlData.toString()
     );
 
-    const form = {
+    const form: IForm = {
         "components": [],
         "schema": null,
         "version": defaultFormVersion
+    };
+
+    const setupSchemaProp = (obj: IWithSchema, parentTag: any[]) => {
+        if (!Array.isArray(parentTag)) {
+            return;
+        }
+
+        // <schema />
+        const schemaAttribEntry = parentTag.find((tag) => {
+            return Object.entries(tag).some(([key, value]) => {
+                return key === schemaXmlTagName;
+            });
+        });
+        if (!schemaAttribEntry) {
+            return;
+        }
+
+        const schemaTag = schemaAttribEntry[schemaXmlTagName];
+        const textChild = schemaTag.find((tag: any) => {
+            return Object.entries(tag).some(([key, value]) => {
+                return key === xmlTextKey;
+            });
+        });
+
+        if (textChild) {
+            if (typeof textChild[xmlTextKey] === "string") {
+                const schemaJson = textChild[xmlTextKey].trim();
+                if (schemaJson.length) {
+                    obj.schema = JSON5.parse<any>(schemaJson);
+                }
+            }
+        }
     };
 
     const collectChildComponents = (parent: any[], targetList: FormComponentChild[]) => {
@@ -136,7 +195,8 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
                             "class": tagName,
                             "children": [],
                             "name": null,
-                            "props": {}
+                            "props": {},
+                            "schema": null
                         };
 
                         if (Array.isArray(attribEntry)) {
@@ -159,6 +219,7 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
 
                         targetList.push(newComponent);
 
+                        setupSchemaProp(newComponent, tagChildren);
                         collectChildComponents(tagChildren, newComponent.children as FormComponentChild[]);
                     }
                 }
@@ -182,30 +243,7 @@ export function fromXml(xmlData: string | { toString(): string; }): IForm {
             form.version = version.trim() || defaultFormVersion;
         }
 
-        // <schema />
-        const schemaAttribEntry = rootTag.find((tag) => {
-            return Object.entries(tag).some(([key, value]) => {
-                return key === schemaXmlTagName;
-            });
-        });
-        if (schemaAttribEntry) {
-            const schemaTag = schemaAttribEntry[schemaXmlTagName];
-            const textChild = schemaTag.find((tag: any) => {
-                return Object.entries(tag).some(([key, value]) => {
-                    return key === xmlTextKey;
-                });
-            });
-
-            if (textChild) {
-                if (typeof textChild[xmlTextKey] === "string") {
-                    const schemaJson = textChild[xmlTextKey].trim();
-                    if (schemaJson.length) {
-                        form.schema = JSON5.parse<any>(schemaJson);
-                    }
-                }
-            }
-        }
-
+        setupSchemaProp(form, rootTag);
         collectChildComponents(rootTag, form.components);
     }
 
@@ -223,6 +261,22 @@ export function toXml(form: IForm): string {
     const rootTag: any[] = [];
     const rootAttribs: any = {
         "version": form.version
+    };
+
+    const setupSchemaTag = (tag: any[], obj: IWithSchema) => {
+        if (!obj.schema) {
+            return;
+        }
+
+        tag.push({
+            [schemaXmlTagName]: [{
+                [xmlTextKey]: JSON.stringify(obj.schema.config || {}, null, 2)
+            }],
+
+            [xmlAttribKey]: {
+                "format": obj.schema.format
+            }
+        });
     };
 
     const collectChildComponents = (component: FormComponentChild, tag: any[]) => {
@@ -261,6 +315,8 @@ export function toXml(form: IForm): string {
                 }
             }
 
+            setupSchemaTag(componentChildren, component);
+
             tag.push(...childTag);
         }
     };
@@ -269,17 +325,7 @@ export function toXml(form: IForm): string {
         collectChildComponents(component, rootTag);
     }
 
-    if (form.schema) {
-        rootTag.push({
-            [schemaXmlTagName]: [{
-                [xmlTextKey]: JSON.stringify(form.schema.config || {}, null, 2)
-            }],
-
-            [xmlAttribKey]: {
-                "format": form.schema.format
-            }
-        });
-    }
+    setupSchemaTag(rootTag, form);
 
     const jObj: any[] = [{
         [xmlFormRootTagName]: rootTag,

@@ -16,6 +16,24 @@
 import type { JSONSchema4 } from "json-schema";
 import { cloneObj } from "../utils/internal";
 
+const formSchemaSchemaStatic: JSONSchema4 = {
+    "oneOf": [{
+        "type": "null"
+    }, {
+        "type": "object",
+        "required": ["config", "format"],
+        "properties": {
+            "format": {
+                "type": "string",
+                "enum": ["ajv"]
+            },
+            "config": {
+                "type": "any"
+            }
+        }
+    }]
+};
+
 const formComponentPropsSchemaStatic: JSONSchema4 = {
     "type": "object",
     "additionalProperties": true,
@@ -53,6 +71,9 @@ const formComponentSchemaStatic: JSONSchema4 = {
             }, {
                 ...cloneObj(formComponentPropsSchemaStatic)
             }]
+        },
+        "schema": {
+            ...cloneObj(formSchemaSchemaStatic)
         }
     }
 };
@@ -75,16 +96,6 @@ Object.defineProperty(formComponentChildrenSchemaStatic, "items", {
     "configurable": true
 });
 
-const formSchemaSchemaStatic: JSONSchema4 = {
-    "oneOf": [{
-        "type": "null"
-    }, {
-        "type": "object",
-        "additionalProperties": true,
-        "minProperties": 0
-    }]
-};
-
 const formSchemaStatic: JSONSchema4 = {
     "type": "object",
     "required": [
@@ -99,11 +110,11 @@ const formSchemaStatic: JSONSchema4 = {
                 ...cloneObj(formComponentSchemaStatic)
             }
         },
-        "version": {
-            "type": "string"
-        },
         "schema": {
             ...cloneObj(formSchemaSchemaStatic)
+        },
+        "version": {
+            "type": "string"
         }
     }
 };

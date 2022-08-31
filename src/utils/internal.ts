@@ -14,7 +14,8 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import JSON5 from "json5";
-import { Optional } from "../types/internal";
+import type { FormComponentChild, FormSchema, IFormComponent } from "../types";
+import type { Nilable, Optional } from "../types/internal";
 
 export interface IXmlAttrib {
     name: string;
@@ -25,6 +26,45 @@ export function cloneObj<T>(obj: any): T {
     return JSON5.parse<T>(
         JSON.stringify(obj)
     );
+}
+
+export function getAllSchemasForValidation(
+    children: Nilable<FormComponentChild[]>,
+    handledComponents: IFormComponent[] = []
+): Record<string, FormSchema> {
+    const schemas: Record<string, FormSchema> = {};
+
+    if (Array.isArray(children)) {
+        children.filter((child) => {
+            return !!child;
+        }).filter((child) => {
+            return typeof child === "object";
+        }).forEach((child: any) => {
+            const component: IFormComponent = child;
+
+            if (handledComponents.includes(component)) {
+                return;
+            }
+
+            handledComponents.push(component);
+            if (typeof component.name === "string") {
+                if (component.schema) {
+                    schemas[component.name] = component.schema;
+                }
+            }
+
+            Object.entries(
+                getAllSchemasForValidation(
+                    child.children,
+                    handledComponents
+                )
+            ).forEach(([name, config]) => {
+                schemas[name] = config;
+            });
+        });
+    }
+
+    return schemas;
 }
 
 export function getXmlAttribValue(name: string, val: any): IXmlAttrib {
