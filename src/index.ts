@@ -54,7 +54,8 @@ export function compileFormValidator(form: IForm): FormValidator {
                 validate.errors?.forEach((error) => {
                     result.push({
                         "type": "error",
-                        "message": error.message || null
+                        "message": error.message || null,
+                        "valuePath": error.instancePath
                     });
                 });
             }

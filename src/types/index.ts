@@ -116,4 +116,8 @@ export interface IFormValidatorResultItem {
      * The type.
      */
     type: FormValidatorResultItemType;
+    /**
+     * The path of the underlying value.
+     */
+    valuePath: string;
 }
