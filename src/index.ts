@@ -73,7 +73,8 @@ export function compileFormValidator(form: IForm): FormValidator {
                 if (isNil(value)) {
                     result.push({
                         "type": "error",
-                        "message": `must have required property '${key}'`
+                        "message": `must have required property '${key}'`,
+                        "valuePath": `/${key}`
                     });
                 }
             });
