@@ -1,5 +1,9 @@
 # Change Log (@egomobile/forms)
 
+## 0.6.0
+
+- add `valuePath` property to [IFormValidatorResultItem interface](https://egomobile.github.io/node-forms/interfaces/IFormValidatorResultItem.html)
+
 ## 0.5.0
 
 - can handle different data types in XML attributes now
