@@ -27,9 +27,7 @@ const formSchemaSchemaStatic: JSONSchema4 = {
                 "type": "string",
                 "enum": ["ajv"]
             },
-            "config": {
-                "type": "any"
-            }
+            "config": {}
         }
     }]
 };

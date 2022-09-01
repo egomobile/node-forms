@@ -1,6 +1,6 @@
 # Change Log (@egomobile/forms)
 
-## 0.7.0
+## 0.7.1
 
 - [IFormComponent items](https://egomobile.github.io/node-forms/interfaces/IFormComponent.html) can also handle own `schema` props now
 
